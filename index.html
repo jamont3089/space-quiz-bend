@@ -123,6 +123,10 @@
     .next { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; border: 0; border-radius: 11px; padding: 13px; margin-top: 22px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 650; cursor: pointer; transition: filter .2s, transform .2s; }
     .next:not(:disabled):hover { background: var(--button-hover); transform: translateY(-1px); }
     .next:disabled { background: var(--soft); color: var(--muted); cursor: not-allowed; }
+    .replay-actions { display: grid; gap: 10px; margin-top: 22px; }
+    .replay-actions .next { margin-top: 0; }
+    .next.secondary { border: 1px solid var(--control-border); background: var(--card); color: var(--text); }
+    .next.secondary:not(:disabled):hover { background: var(--soft); }
     .hint { margin: 13px 0 0; text-align: center; color: var(--muted); font-size: 11px; }
     .footer { text-align: center; margin-top: 23px; padding: 8px; font-size: 11px; color: var(--muted); letter-spacing: .2px; }
     .footer span { padding: 0 7px; color: #b5aacd; }
@@ -291,7 +295,10 @@
           <button class="review-close" id="review-close" type="button">Close review</button>
         </section>
         <p class="review-perfect" id="review-perfect" hidden>Perfect mission — every answer was correct. Nothing to review.</p>
-        <button class="next" id="restart">Explore again <span aria-hidden="true">&rarr;</span></button>
+        <div class="replay-actions" role="group" aria-label="Choose how to replay">
+          <button type="button" class="next" id="restart">Explore again <span aria-hidden="true">&rarr;</span></button>
+          <button type="button" class="next secondary" id="shuffled-restart">Play shuffled <span aria-hidden="true">&#8644;</span></button>
+        </div>
       </div>
     </section>
     <footer class="footer">
@@ -318,6 +325,7 @@
     let score = 0;
     let answered = false;
     let selectedAnswers = [];
+    let runQuestions = questions;
 
     $("motion-toggle").addEventListener("click", () => {
       const paused = $("motion-toggle").getAttribute("aria-pressed") !== "true";
@@ -328,14 +336,14 @@
 
     function updateProgress(completed) {
       $("progress").value = completed;
-      $("progress").setAttribute("aria-valuetext", `${completed} of ${questions.length} questions completed`);
-      $("progress-percent").textContent = `${String(Math.round(completed / questions.length * 100)).padStart(2, "0")}%`;
+      $("progress").setAttribute("aria-valuetext", `${completed} of ${runQuestions.length} questions completed`);
+      $("progress-percent").textContent = `${String(Math.round(completed / runQuestions.length * 100)).padStart(2, "0")}%`;
     }
 
     function renderQuestion(focus = false) {
       answered = false;
-      const item = questions[current];
-      $("question-count").innerHTML = `<span class="question-number">Question ${String(current + 1).padStart(2, "0")}</span> / ${questions.length}`;
+      const item = runQuestions[current];
+      $("question-count").innerHTML = `<span class="question-number">Question ${String(current + 1).padStart(2, "0")}</span> / ${runQuestions.length}`;
       $("category").textContent = item.category;
       $("question").textContent = item.question;
       $("answers").replaceChildren();
@@ -356,7 +364,7 @@
       $("feedback").hidden = true;
       $("feedback").replaceChildren();
       $("next").disabled = true;
-      $("next-label").textContent = current === questions.length - 1 ? "See my results" : "Next question";
+      $("next-label").textContent = current === runQuestions.length - 1 ? "See my results" : "Next question";
       $("hint").textContent = "Pick an answer to continue your journey";
       $("mission-state").textContent = "Mission active";
       updateProgress(current);
@@ -366,7 +374,7 @@
     function selectAnswer(selected) {
       if (answered) return;
       answered = true;
-      const item = questions[current];
+      const item = runQuestions[current];
       const correct = selected === item.correct;
       if (correct) score++;
       selectedAnswers[current] = selected;
@@ -411,15 +419,15 @@
       $("reaction").textContent = reaction[0];
       $("result-title").textContent = reaction[1];
       $("result-message").textContent = reaction[2];
-      $("final-score").textContent = `${score} / ${questions.length}`;
+      $("final-score").textContent = `${score} / ${runQuestions.length}`;
       $("accuracy").textContent = `${score * 10}%`;
       $("review-toggle").hidden = false;
       $("review-toggle").setAttribute("aria-expanded", "false");
       $("review-toggle").textContent = "Review all answers";
       $("answer-review").hidden = true;
-      $("review-perfect").hidden = score !== questions.length;
+      $("review-perfect").hidden = score !== runQuestions.length;
       $("review-list").replaceChildren();
-      questions.forEach((item, question) => {
+      runQuestions.forEach((item, question) => {
         const selected = selectedAnswers[question];
         const entry = document.createElement("li");
         entry.className = "review-item";
@@ -444,11 +452,6 @@
       $("result-title").focus({ preventScroll: true });
     }
 
-    $("next").addEventListener("click", () => {
-      if (!answered) return;
-      if (current === questions.length - 1) showResults();
-      else { current++; renderQuestion(true); }
-    });
     $("review-toggle").addEventListener("click", () => {
       const opening = $("answer-review").hidden;
       $("answer-review").hidden = !opening;
@@ -462,7 +465,20 @@
       $("review-toggle").textContent = "Review all answers";
       $("review-toggle").focus({ preventScroll: true });
     });
-    $("restart").addEventListener("click", () => {
+    function shuffledQuestions() {
+      const shuffled = [...questions];
+      for (let index = shuffled.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      if (shuffled.every((question, index) => question === questions[index])) {
+        [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+      }
+      return shuffled;
+    }
+
+    function startReplay(shuffled = false) {
+      runQuestions = shuffled ? shuffledQuestions() : questions;
       current = 0;
       score = 0;
       selectedAnswers = [];
@@ -476,7 +492,15 @@
       $("result").hidden = true;
       $("question-panel").hidden = false;
       renderQuestion(true);
+    }
+
+    $("next").addEventListener("click", () => {
+      if (!answered) return;
+      if (current === runQuestions.length - 1) showResults();
+      else { current++; renderQuestion(true); }
     });
+    $("restart").addEventListener("click", () => startReplay());
+    $("shuffled-restart").addEventListener("click", () => startReplay(true));
     renderQuestion();
   </script>
 </body>
