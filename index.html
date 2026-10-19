@@ -454,7 +454,7 @@
       $("answer-review").hidden = !opening;
       $("review-toggle").setAttribute("aria-expanded", String(opening));
       $("review-toggle").textContent = opening ? "Close answer review" : "Review all answers";
-      if (opening) $("review-heading").focus({ preventScroll: true });
+      if (opening) $("review-heading").focus();
     });
     $("review-close").addEventListener("click", () => {
       $("answer-review").hidden = true;
