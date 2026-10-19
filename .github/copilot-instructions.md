@@ -8,6 +8,8 @@ Validation is browser-based; there are no configured build, test-runner, or lint
 
 For a full smoke pass, complete all 10 questions and check final score, accuracy, emoji, 100% telemetry, and replay reset. Exercise actual Tab/Enter/Space navigation when the browser tooling supports keystrokes; programmatic focus checks alone do not verify keyboard navigation. Check light/dark themes, narrow screens, reduced motion, and Pause animations.
 
+On the results screen, Copy result shares the displayed score, accuracy, and emoji as plain text. Check successful clipboard confirmation without a focus change and unavailable/denied clipboard fallback with a labeled, read-only summary that can be selected and copied under `file://`. Both replay controls must clear copy feedback and the summary; pending clipboard requests must not update a later run.
+
 ## Architecture
 
 The application is entirely in `index.html`: inline CSS, semantic page markup and SVG artwork, followed by a classic inline JavaScript script. There are no external assets or application modules. Preserve this single-file arrangement.
