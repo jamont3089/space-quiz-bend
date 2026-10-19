@@ -142,6 +142,11 @@
     .result-score small { color: var(--muted); font-size: 12px; }
     .result-stats { display: flex; justify-content: center; gap: 27px; margin-bottom: 24px; font-size: 12px; color: var(--muted); }
     .result-stats b { color: var(--text); }
+    .copy-status:not(:empty) { margin-top: 12px; }
+    .manual-copy { margin-top: 14px; text-align: left; }
+    .manual-copy label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 650; }
+    .manual-copy textarea { display: block; width: 100%; padding: 12px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; resize: vertical; }
+    .manual-copy textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
     .enter { animation: appear .3s ease; }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
     @keyframes twinkle { from { opacity: .35; } to { opacity: 1; } }
@@ -275,6 +280,12 @@
         <p id="result-message"></p>
         <div class="result-score"><strong id="final-score"></strong><small>questions answered correctly</small></div>
         <div class="result-stats"><span><b id="accuracy"></b> accuracy</span><span><b>10</b> discoveries made</span></div>
+        <button type="button" class="next secondary" id="copy-result">Copy result</button>
+        <p id="copy-status" class="copy-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div id="manual-copy" class="manual-copy" hidden>
+          <label for="result-summary">Mission result — select and copy manually</label>
+          <textarea id="result-summary" rows="3" readonly spellcheck="false"></textarea>
+        </div>
         <div class="replay-actions" role="group" aria-label="Choose how to replay">
           <button type="button" class="next" id="restart">Explore again <span aria-hidden="true">&rarr;</span></button>
           <button type="button" class="next secondary" id="shuffled-restart">Play shuffled <span aria-hidden="true">&#8644;</span></button>
@@ -305,6 +316,7 @@
     let score = 0;
     let answered = false;
     let runQuestions = questions;
+    let copyAttempt = 0;
 
     $("motion-toggle").addEventListener("click", () => {
       const paused = $("motion-toggle").getAttribute("aria-pressed") !== "true";
@@ -383,6 +395,7 @@
     }
 
     function showResults() {
+      resetCopyFeedback();
       $("question-panel").hidden = true;
       $("result").hidden = false;
       $("question-count").textContent = "Journey complete";
@@ -402,6 +415,33 @@
       $("result-title").focus({ preventScroll: true });
     }
 
+    function resetCopyFeedback() {
+      copyAttempt++;
+      $("copy-status").textContent = "";
+      $("manual-copy").hidden = true;
+      $("result-summary").value = "";
+    }
+
+    async function copyResult() {
+      resetCopyFeedback();
+      const attempt = copyAttempt;
+      const summary = `Orbit — The Cosmic Quiz: ${$("final-score").textContent} correct, ${$("accuracy").textContent} accuracy ${$("reaction").textContent}`;
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+          throw new Error("Clipboard access is unavailable");
+        }
+        await navigator.clipboard.writeText(summary);
+      } catch {
+        if (attempt !== copyAttempt) return;
+        $("result-summary").value = summary;
+        $("manual-copy").hidden = false;
+        $("copy-status").textContent = "Automatic copying is unavailable or was denied. Select the summary below and copy it manually.";
+        return;
+      }
+      if (attempt !== copyAttempt) return;
+      $("copy-status").textContent = "Mission result copied!";
+    }
+
     function shuffledQuestions() {
       const shuffled = [...questions];
       for (let index = shuffled.length - 1; index > 0; index--) {
@@ -415,6 +455,7 @@
     }
 
     function startReplay(shuffled = false) {
+      resetCopyFeedback();
       runQuestions = shuffled ? shuffledQuestions() : questions;
       current = 0;
       score = 0;
@@ -431,6 +472,7 @@
     });
     $("restart").addEventListener("click", () => startReplay());
     $("shuffled-restart").addEventListener("click", () => startReplay(true));
+    $("copy-result").addEventListener("click", copyResult);
     renderQuestion();
   </script>
 </body>
