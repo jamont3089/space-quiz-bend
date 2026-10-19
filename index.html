@@ -142,6 +142,19 @@
     .result-score small { color: var(--muted); font-size: 12px; }
     .result-stats { display: flex; justify-content: center; gap: 27px; margin-bottom: 24px; font-size: 12px; color: var(--muted); }
     .result-stats b { color: var(--text); }
+    .review-toggle, .review-close { min-height: 44px; padding: 9px 14px; border: 1px solid var(--control-border); border-radius: 9px; color: var(--text); background: var(--card); cursor: pointer; font-size: 13px; font-weight: 650; }
+    .review-toggle { width: 100%; margin-bottom: 18px; }
+    .review-toggle:hover, .review-close:hover { background: var(--soft); }
+    .review-panel { text-align: left; margin: 0 0 22px; }
+    .review-panel h3 { margin: 0 0 12px; font-size: 17px; }
+    .review-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .review-item { padding: 14px; border: 1px solid var(--control-border); border-radius: 10px; background: var(--card); }
+    .review-item h4 { margin: 0 0 9px; font-size: 14px; line-height: 1.45; }
+    .review-item p { max-width: none; margin: 6px 0 0; color: var(--text); font-size: 12px; }
+    .review-item strong { color: var(--text); }
+    .review-fact { padding-top: 8px; border-top: 1px solid var(--line); }
+    .review-close { display: block; width: 100%; margin-top: 12px; }
+    .result .review-perfect { margin: 0 0 18px; padding: 12px; border: 1px solid var(--control-border); border-radius: 9px; color: var(--text); background: var(--soft); }
     .enter { animation: appear .3s ease; }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
     @keyframes twinkle { from { opacity: .35; } to { opacity: 1; } }
@@ -275,6 +288,13 @@
         <p id="result-message"></p>
         <div class="result-score"><strong id="final-score"></strong><small>questions answered correctly</small></div>
         <div class="result-stats"><span><b id="accuracy"></b> accuracy</span><span><b>10</b> discoveries made</span></div>
+        <button class="review-toggle" id="review-toggle" type="button" aria-expanded="false" aria-controls="answer-review" hidden>Review all answers</button>
+        <section class="review-panel" id="answer-review" aria-labelledby="review-heading" hidden>
+          <h3 id="review-heading" tabindex="-1">Answer review</h3>
+          <ol class="review-list" id="review-list"></ol>
+          <button class="review-close" id="review-close" type="button">Close review</button>
+        </section>
+        <p class="review-perfect" id="review-perfect" hidden>Perfect mission — every answer was correct. Nothing to review.</p>
         <div class="replay-actions" role="group" aria-label="Choose how to replay">
           <button type="button" class="next" id="restart">Explore again <span aria-hidden="true">&rarr;</span></button>
           <button type="button" class="next secondary" id="shuffled-restart">Play shuffled <span aria-hidden="true">&#8644;</span></button>
@@ -304,6 +324,7 @@
     let current = 0;
     let score = 0;
     let answered = false;
+    let selectedAnswers = [];
     let runQuestions = questions;
 
     $("motion-toggle").addEventListener("click", () => {
@@ -356,6 +377,7 @@
       const item = runQuestions[current];
       const correct = selected === item.correct;
       if (correct) score++;
+      selectedAnswers[current] = selected;
       $("score").textContent = score;
       [...$("answers").children].forEach((button, index) => {
         button.disabled = true;
@@ -399,9 +421,50 @@
       $("result-message").textContent = reaction[2];
       $("final-score").textContent = `${score} / ${runQuestions.length}`;
       $("accuracy").textContent = `${score * 10}%`;
+      $("review-toggle").hidden = false;
+      $("review-toggle").setAttribute("aria-expanded", "false");
+      $("review-toggle").textContent = "Review all answers";
+      $("answer-review").hidden = true;
+      $("review-perfect").hidden = score !== runQuestions.length;
+      $("review-list").replaceChildren();
+      runQuestions.forEach((item, question) => {
+        const selected = selectedAnswers[question];
+        const entry = document.createElement("li");
+        entry.className = "review-item";
+        const heading = document.createElement("h4");
+        heading.textContent = `Question ${question + 1}: ${item.question}`;
+        const selectedAnswer = document.createElement("p");
+        const selectedLabel = document.createElement("strong");
+        selectedLabel.textContent = "Your answer: ";
+        selectedAnswer.append(selectedLabel, document.createTextNode(item.answers[selected]));
+        const correctAnswer = document.createElement("p");
+        const correctLabel = document.createElement("strong");
+        correctLabel.textContent = "Correct answer: ";
+        correctAnswer.append(correctLabel, document.createTextNode(item.answers[item.correct]));
+        const fact = document.createElement("p");
+        fact.className = "review-fact";
+        const factLabel = document.createElement("strong");
+        factLabel.textContent = "Discovery: ";
+        fact.append(factLabel, document.createTextNode(item.fact));
+        entry.append(heading, selectedAnswer, correctAnswer, fact);
+        $("review-list").append(entry);
+      });
       $("result-title").focus({ preventScroll: true });
     }
 
+    $("review-toggle").addEventListener("click", () => {
+      const opening = $("answer-review").hidden;
+      $("answer-review").hidden = !opening;
+      $("review-toggle").setAttribute("aria-expanded", String(opening));
+      $("review-toggle").textContent = opening ? "Close answer review" : "Review all answers";
+      if (opening) $("review-heading").focus();
+    });
+    $("review-close").addEventListener("click", () => {
+      $("answer-review").hidden = true;
+      $("review-toggle").setAttribute("aria-expanded", "false");
+      $("review-toggle").textContent = "Review all answers";
+      $("review-toggle").focus({ preventScroll: true });
+    });
     function shuffledQuestions() {
       const shuffled = [...questions];
       for (let index = shuffled.length - 1; index > 0; index--) {
@@ -418,7 +481,14 @@
       runQuestions = shuffled ? shuffledQuestions() : questions;
       current = 0;
       score = 0;
+      selectedAnswers = [];
       $("score").textContent = "0";
+      $("review-toggle").hidden = true;
+      $("review-toggle").setAttribute("aria-expanded", "false");
+      $("review-toggle").textContent = "Review all answers";
+      $("answer-review").hidden = true;
+      $("review-list").replaceChildren();
+      $("review-perfect").hidden = true;
       $("result").hidden = true;
       $("question-panel").hidden = false;
       renderQuestion(true);
